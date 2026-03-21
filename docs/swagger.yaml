@@ -1,4 +1,199 @@
+basePath: /
+definitions:
+  models.Book:
+    properties:
+      author:
+        type: string
+      category:
+        type: string
+      id:
+        type: integer
+      title:
+        type: string
+    type: object
+host: localhost:8080
 info:
   contact: {}
-paths: {}
+  description: Бұл жеке медициналық клиниканың API-сы
+  title: Private Medical Clinic API
+  version: "1.0"
+paths:
+  /books:
+    get:
+      consumes:
+      - application/json
+      description: Барлық кітаптарды фильтрлермен және пагинациямен қайтарады
+      parameters:
+      - description: Автор аты бойынша фильтр
+        in: query
+        name: author
+        type: string
+      - description: Категория бойынша фильтр
+        in: query
+        name: category
+        type: string
+      - description: Тақырып бойынша фильтр
+        in: query
+        name: title
+        type: string
+      - default: 1
+        description: Бет нөмірі
+        in: query
+        name: page
+        type: integer
+      - default: 5
+        description: Беттегі элементтер саны
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Book'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Кітаптар тізімін алу
+      tags:
+      - books
+    post:
+      consumes:
+      - application/json
+      description: Жаңа кітапты дерекқорға қосады
+      parameters:
+      - description: Кітап мәліметтері
+        in: body
+        name: book
+        required: true
+        schema:
+          $ref: '#/definitions/models.Book'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Book'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Жаңа кітап қосу
+      tags:
+      - books
+  /books/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: ID бойынша кітапты дерекқордан жояды
+      parameters:
+      - description: Кітап ID-і
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Кітапты жою
+      tags:
+      - books
+    get:
+      consumes:
+      - application/json
+      description: ID бойынша кітапты қайтарады
+      parameters:
+      - description: Кітап ID-і
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Book'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Кітапты ID бойынша алу
+      tags:
+      - books
+    put:
+      consumes:
+      - application/json
+      description: ID бойынша кітапты толық жаңартады
+      parameters:
+      - description: Кітап ID-і
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Жаңартылған кітап мәліметтері
+        in: body
+        name: book
+        required: true
+        schema:
+          $ref: '#/definitions/models.Book'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Book'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Кітапты жаңарту
+      tags:
+      - books
 swagger: "2.0"
