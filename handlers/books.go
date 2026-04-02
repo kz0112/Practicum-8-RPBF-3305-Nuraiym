@@ -1,57 +1,41 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 
+	"Private-medical-clinic.backend/config"
 	"Private-medical-clinic.backend/models"
-	"Private-medical-clinic.backend/storage"
+
+	"github.com/gin-gonic/gin"
 )
 
-// BooksHandler кітаптар тізімін басқарады
-// @Summary Кітаптар тізімін алу
-// @Description Барлық кітаптарды фильтрлермен және пагинациямен қайтарады
+// =========================
+// 📚 GET /books (pagination + filter)
+// =========================
+// GetBooks godoc
+// @Summary Get all books
+// @Description Get books with pagination and filters
 // @Tags books
 // @Accept json
 // @Produce json
-// @Param author query string false "Автор аты бойынша фильтр"
-// @Param category query string false "Категория бойынша фильтр"
-// @Param title query string false "Тақырып бойынша фильтр"
-// @Param page query int false "Бет нөмірі" default(1)
-// @Param limit query int false "Беттегі элементтер саны" default(5)
+// @Param page query int false "Page"
+// @Param limit query int false "Limit"
+// @Param category query int false "Category ID"
+// @Param author query int false "Author ID"
+// @Param title query string false "Book title"
 // @Success 200 {array} models.Book
-// @Failure 400 {object} map[string]string
 // @Router /books [get]
-func BooksHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func GetBooks(c *gin.Context) {
+	var books []models.Book
 
-	books := storage.Books
+	// Query params
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
 
-	// Filters
-	author := strings.ToLower(r.URL.Query().Get("author"))
-	category := strings.ToLower(r.URL.Query().Get("category"))
-	title := strings.ToLower(r.URL.Query().Get("title"))
-
-	var filtered []models.Book
-
-	for _, book := range books {
-		if author != "" && !strings.Contains(strings.ToLower(book.Author), author) {
-			continue
-		}
-		if category != "" && !strings.Contains(strings.ToLower(book.Category), category) {
-			continue
-		}
-		if title != "" && !strings.Contains(strings.ToLower(book.Title), title) {
-			continue
-		}
-		filtered = append(filtered, book)
-	}
-
-	// Pagination
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	category := c.Query("category")
+	author := c.Query("author")
+	title := c.Query("title")
 
 	if page <= 0 {
 		page = 1
@@ -60,158 +44,193 @@ func BooksHandler(w http.ResponseWriter, r *http.Request) {
 		limit = 5
 	}
 
-	start := (page - 1) * limit
-	end := start + limit
+	offset := (page - 1) * limit
 
-	if start > len(filtered) {
-		start = len(filtered)
+	query := config.DB
+
+	// Filters
+	if category != "" {
+		query = query.Where("category_id = ?", category)
 	}
-	if end > len(filtered) {
-		end = len(filtered)
+	if author != "" {
+		query = query.Where("author_id = ?", author)
+	}
+	if title != "" {
+		query = query.Where("title ILIKE ?", "%"+title+"%")
 	}
 
-	json.NewEncoder(w).Encode(filtered[start:end])
+	// 🔥 preload (JOIN)
+	query = query.Preload("Author").Preload("Category")
+
+	if err := query.
+		Order("id asc").
+		Limit(limit).
+		Offset(offset).
+		Find(&books).Error; err != nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to fetch books",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, books)
 }
 
-// CreateBook жаңа кітап жасау
-// @Summary Жаңа кітап қосу
-// @Description Жаңа кітапты дерекқорға қосады
+// =========================
+// ➕ POST /books
+// =========================
+// CreateBook godoc
+// @Summary Create book
 // @Tags books
 // @Accept json
 // @Produce json
-// @Param book body models.Book true "Кітап мәліметтері"
+// @Param book body models.CreateBookInput true "Book"
 // @Success 201 {object} models.Book
-// @Failure 400 {object} map[string]string
 // @Router /books [post]
-func CreateBook(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func CreateBook(c *gin.Context) {
+	var input models.CreateBookInput
 
-	var newBook models.Book
-	err := json.NewDecoder(r.Body).Decode(&newBook)
-	if err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
 		return
 	}
 
-	if newBook.Title == "" || newBook.Author == "" {
-		http.Error(w, "Title and Author required", http.StatusBadRequest)
+	// validation
+	if input.Title == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Title is required"})
+		return
+	}
+	if input.Price <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Price must be positive"})
 		return
 	}
 
-	newBook.ID = len(storage.Books) + 1
-	storage.Books = append(storage.Books, newBook)
+	book := models.Book{
+		Title:      input.Title,
+		Price:      input.Price,
+		AuthorID:   input.AuthorID,
+		CategoryID: input.CategoryID,
+	}
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(newBook)
+	if err := config.DB.Create(&book).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to create book",
+		})
+		return
+	}
+
+	// 🔥 МЫНА ЖЕРДІ ҚОСАСЫҢ
+	if err := config.DB.Preload("Author").Preload("Category").First(&book, book.ID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to load relations",
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, book)
+
 }
 
-// BookByIDHandler бір кітаппен жұмыс істейді
-// @Summary Кітапты ID бойынша алу
-// @Description ID бойынша кітапты қайтарады
+// =========================
+// 🔍 GET /books/:id
+// =========================
+// GetBookByID godoc
+// @Summary Get book by ID
 // @Tags books
-// @Accept json
 // @Produce json
-// @Param id path int true "Кітап ID-і"
+// @Param id path int true "Book ID"
 // @Success 200 {object} models.Book
-// @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Router /books/{id} [get]
-func BookByIDHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func GetBookByID(c *gin.Context) {
+	var book models.Book
+	id := c.Param("id")
 
-	idStr := strings.TrimPrefix(r.URL.Path, "/books/")
-	id, err := strconv.Atoi(idStr)
-
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+	if err := config.DB.Preload("Author").Preload("Category").First(&book, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Book not found",
+		})
 		return
 	}
 
-	// Кітапты іздеу
-	for _, book := range storage.Books {
-		if book.ID == id {
-			json.NewEncoder(w).Encode(book)
-			return
-		}
-	}
-
-	http.Error(w, "Book not found", http.StatusNotFound)
+	c.JSON(http.StatusOK, book)
 }
 
-// UpdateBook кітапты жаңарту
-// @Summary Кітапты жаңарту
-// @Description ID бойынша кітапты толық жаңартады
+// =========================
+// ✏️ PUT /books/:id
+// =========================
+// UpdateBook godoc
+// @Summary Update book
 // @Tags books
 // @Accept json
 // @Produce json
-// @Param id path int true "Кітап ID-і"
-// @Param book body models.Book true "Жаңартылған кітап мәліметтері"
+// @Param id path int true "Book ID"
+// @Param book body models.UpdateBookInput true "Updated book"
 // @Success 200 {object} models.Book
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
 // @Router /books/{id} [put]
-func UpdateBook(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func UpdateBook(c *gin.Context) {
+	var book models.Book
+	id := c.Param("id")
 
-	idStr := strings.TrimPrefix(r.URL.Path, "/books/")
-	id, err := strconv.Atoi(idStr)
-
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+	if err := config.DB.First(&book, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Book not found"})
 		return
 	}
 
-	for i, book := range storage.Books {
-		if book.ID == id {
-			var updatedBook models.Book
-			err := json.NewDecoder(r.Body).Decode(&updatedBook)
-			if err != nil {
-				http.Error(w, "Invalid JSON", http.StatusBadRequest)
-				return
-			}
+	var input models.UpdateBookInput
 
-			updatedBook.ID = id
-			storage.Books[i] = updatedBook
-
-			json.NewEncoder(w).Encode(updatedBook)
-			return
-		}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 
-	http.Error(w, "Book not found", http.StatusNotFound)
+	// partial update
+	if input.Title != "" {
+		book.Title = input.Title
+	}
+	if input.Price != 0 {
+		book.Price = input.Price
+	}
+	if input.AuthorID != 0 {
+		book.AuthorID = input.AuthorID
+	}
+	if input.CategoryID != 0 {
+		book.CategoryID = input.CategoryID
+	}
+
+	config.DB.Save(&book)
+	if err := config.DB.Preload("Author").Preload("Category").First(&book, book.ID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to load relations",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, book)
 }
 
-// DeleteBook кітапты жою
-// @Summary Кітапты жою
-// @Description ID бойынша кітапты дерекқордан жояды
+// =========================
+// ❌ DELETE /books/:id
+// =========================
+// DeleteBook godoc
+// @Summary Delete book
 // @Tags books
-// @Accept json
 // @Produce json
-// @Param id path int true "Кітап ID-і"
+// @Param id path int true "Book ID"
 // @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
 // @Router /books/{id} [delete]
-func DeleteBook(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+func DeleteBook(c *gin.Context) {
+	id := c.Param("id")
 
-	idStr := strings.TrimPrefix(r.URL.Path, "/books/")
-	id, err := strconv.Atoi(idStr)
-
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+	if err := config.DB.Delete(&models.Book{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to delete book",
+		})
 		return
 	}
 
-	for i, book := range storage.Books {
-		if book.ID == id {
-			storage.Books = append(storage.Books[:i], storage.Books[i+1:]...)
-			json.NewEncoder(w).Encode(map[string]string{
-				"message": "Deleted successfully",
-			})
-			return
-		}
-	}
-
-	http.Error(w, "Book not found", http.StatusNotFound)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Book deleted successfully",
+	})
 }

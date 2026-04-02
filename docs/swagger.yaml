@@ -1,13 +1,67 @@
 basePath: /
 definitions:
+  models.Author:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    required:
+    - name
+    type: object
   models.Book:
     properties:
       author:
-        type: string
+        $ref: '#/definitions/models.Author'
+      author_id:
+        type: integer
       category:
-        type: string
+        $ref: '#/definitions/models.Category'
+      category_id:
+        type: integer
       id:
         type: integer
+      price:
+        type: number
+      title:
+        type: string
+    required:
+    - price
+    - title
+    type: object
+  models.Category:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  models.CreateBookInput:
+    properties:
+      author_id:
+        type: integer
+      category_id:
+        type: integer
+      price:
+        type: number
+      title:
+        type: string
+    required:
+    - author_id
+    - category_id
+    - price
+    - title
+    type: object
+  models.UpdateBookInput:
+    properties:
+      author_id:
+        type: integer
+      category_id:
+        type: integer
+      price:
+        type: number
       title:
         type: string
     type: object
@@ -18,34 +72,90 @@ info:
   title: Private Medical Clinic API
   version: "1.0"
 paths:
+  /authors:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Author'
+            type: array
+      summary: Get all authors
+      tags:
+      - authors
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Author
+        in: body
+        name: author
+        required: true
+        schema:
+          $ref: '#/definitions/models.Author'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Author'
+      summary: Create author
+      tags:
+      - authors
+  /authors/{id}:
+    get:
+      parameters:
+      - description: Author ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Author'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get author by ID
+      tags:
+      - authors
   /books:
     get:
       consumes:
       - application/json
-      description: Барлық кітаптарды фильтрлермен және пагинациямен қайтарады
+      description: Get books with pagination and filters
       parameters:
-      - description: Автор аты бойынша фильтр
-        in: query
-        name: author
-        type: string
-      - description: Категория бойынша фильтр
-        in: query
-        name: category
-        type: string
-      - description: Тақырып бойынша фильтр
-        in: query
-        name: title
-        type: string
-      - default: 1
-        description: Бет нөмірі
+      - description: Page
         in: query
         name: page
         type: integer
-      - default: 5
-        description: Беттегі элементтер саны
+      - description: Limit
         in: query
         name: limit
         type: integer
+      - description: Category ID
+        in: query
+        name: category
+        type: integer
+      - description: Author ID
+        in: query
+        name: author
+        type: integer
+      - description: Book title
+        in: query
+        name: title
+        type: string
       produces:
       - application/json
       responses:
@@ -55,26 +165,19 @@ paths:
             items:
               $ref: '#/definitions/models.Book'
             type: array
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Кітаптар тізімін алу
+      summary: Get all books
       tags:
       - books
     post:
       consumes:
       - application/json
-      description: Жаңа кітапты дерекқорға қосады
       parameters:
-      - description: Кітап мәліметтері
+      - description: Book
         in: body
         name: book
         required: true
         schema:
-          $ref: '#/definitions/models.Book'
+          $ref: '#/definitions/models.CreateBookInput'
       produces:
       - application/json
       responses:
@@ -82,22 +185,13 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/models.Book'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Жаңа кітап қосу
+      summary: Create book
       tags:
       - books
   /books/{id}:
     delete:
-      consumes:
-      - application/json
-      description: ID бойынша кітапты дерекқордан жояды
       parameters:
-      - description: Кітап ID-і
+      - description: Book ID
         in: path
         name: id
         required: true
@@ -111,27 +205,12 @@ paths:
             additionalProperties:
               type: string
             type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Кітапты жою
+      summary: Delete book
       tags:
       - books
     get:
-      consumes:
-      - application/json
-      description: ID бойынша кітапты қайтарады
       parameters:
-      - description: Кітап ID-і
+      - description: Book ID
         in: path
         name: id
         required: true
@@ -143,37 +222,30 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/models.Book'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
         "404":
           description: Not Found
           schema:
             additionalProperties:
               type: string
             type: object
-      summary: Кітапты ID бойынша алу
+      summary: Get book by ID
       tags:
       - books
     put:
       consumes:
       - application/json
-      description: ID бойынша кітапты толық жаңартады
       parameters:
-      - description: Кітап ID-і
+      - description: Book ID
         in: path
         name: id
         required: true
         type: integer
-      - description: Жаңартылған кітап мәліметтері
+      - description: Updated book
         in: body
         name: book
         required: true
         schema:
-          $ref: '#/definitions/models.Book'
+          $ref: '#/definitions/models.UpdateBookInput'
       produces:
       - application/json
       responses:
@@ -181,19 +253,41 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/models.Book'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Кітапты жаңарту
+      summary: Update book
       tags:
       - books
+  /categories:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Category'
+            type: array
+      summary: Get all categories
+      tags:
+      - categories
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Category
+        in: body
+        name: category
+        required: true
+        schema:
+          $ref: '#/definitions/models.Category'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Category'
+      summary: Create category
+      tags:
+      - categories
 swagger: "2.0"

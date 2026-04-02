@@ -15,9 +15,99 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/authors": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authors"
+                ],
+                "summary": "Get all authors",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Author"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authors"
+                ],
+                "summary": "Create author",
+                "parameters": [
+                    {
+                        "description": "Author",
+                        "name": "author",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Author"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Author"
+                        }
+                    }
+                }
+            }
+        },
+        "/authors/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authors"
+                ],
+                "summary": "Get author by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Author ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Author"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/books": {
             "get": {
-                "description": "Барлық кітаптарды фильтрлермен және пагинациямен қайтарады",
+                "description": "Get books with pagination and filters",
                 "consumes": [
                     "application/json"
                 ],
@@ -27,38 +117,36 @@ const docTemplate = `{
                 "tags": [
                     "books"
                 ],
-                "summary": "Кітаптар тізімін алу",
+                "summary": "Get all books",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Автор аты бойынша фильтр",
-                        "name": "author",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Категория бойынша фильтр",
-                        "name": "category",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Тақырып бойынша фильтр",
-                        "name": "title",
-                        "in": "query"
-                    },
-                    {
                         "type": "integer",
-                        "default": 1,
-                        "description": "Бет нөмірі",
+                        "description": "Page",
                         "name": "page",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "default": 5,
-                        "description": "Беттегі элементтер саны",
+                        "description": "Limit",
                         "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Category ID",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Author ID",
+                        "name": "author",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Book title",
+                        "name": "title",
                         "in": "query"
                     }
                 ],
@@ -71,20 +159,10 @@ const docTemplate = `{
                                 "$ref": "#/definitions/models.Book"
                             }
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
                     }
                 }
             },
             "post": {
-                "description": "Жаңа кітапты дерекқорға қосады",
                 "consumes": [
                     "application/json"
                 ],
@@ -94,15 +172,15 @@ const docTemplate = `{
                 "tags": [
                     "books"
                 ],
-                "summary": "Жаңа кітап қосу",
+                "summary": "Create book",
                 "parameters": [
                     {
-                        "description": "Кітап мәліметтері",
+                        "description": "Book",
                         "name": "book",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Book"
+                            "$ref": "#/definitions/models.CreateBookInput"
                         }
                     }
                 ],
@@ -112,36 +190,23 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/models.Book"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
                     }
                 }
             }
         },
         "/books/{id}": {
             "get": {
-                "description": "ID бойынша кітапты қайтарады",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "books"
                 ],
-                "summary": "Кітапты ID бойынша алу",
+                "summary": "Get book by ID",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Кітап ID-і",
+                        "description": "Book ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -152,15 +217,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/models.Book"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
                         }
                     },
                     "404": {
@@ -175,7 +231,6 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "ID бойынша кітапты толық жаңартады",
                 "consumes": [
                     "application/json"
                 ],
@@ -185,22 +240,22 @@ const docTemplate = `{
                 "tags": [
                     "books"
                 ],
-                "summary": "Кітапты жаңарту",
+                "summary": "Update book",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Кітап ID-і",
+                        "description": "Book ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Жаңартылған кітап мәліметтері",
+                        "description": "Updated book",
                         "name": "book",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Book"
+                            "$ref": "#/definitions/models.UpdateBookInput"
                         }
                     }
                 ],
@@ -209,44 +264,22 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/models.Book"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
                         }
                     }
                 }
             },
             "delete": {
-                "description": "ID бойынша кітапты дерекқордан жояды",
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "books"
                 ],
-                "summary": "Кітапты жою",
+                "summary": "Delete book",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Кітап ID-і",
+                        "description": "Book ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -255,24 +288,6 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -282,20 +297,154 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/categories": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "categories"
+                ],
+                "summary": "Get all categories",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Category"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "categories"
+                ],
+                "summary": "Create category",
+                "parameters": [
+                    {
+                        "description": "Category",
+                        "name": "category",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Category"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Category"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "models.Author": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Book": {
             "type": "object",
+            "required": [
+                "price",
+                "title"
+            ],
             "properties": {
                 "author": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.Author"
+                },
+                "author_id": {
+                    "type": "integer"
                 },
                 "category": {
-                    "type": "string"
+                    "$ref": "#/definitions/models.Category"
+                },
+                "category_id": {
+                    "type": "integer"
                 },
                 "id": {
                     "type": "integer"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Category": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.CreateBookInput": {
+            "type": "object",
+            "required": [
+                "author_id",
+                "category_id",
+                "price",
+                "title"
+            ],
+            "properties": {
+                "author_id": {
+                    "type": "integer"
+                },
+                "category_id": {
+                    "type": "integer"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.UpdateBookInput": {
+            "type": "object",
+            "properties": {
+                "author_id": {
+                    "type": "integer"
+                },
+                "category_id": {
+                    "type": "integer"
+                },
+                "price": {
+                    "type": "number"
                 },
                 "title": {
                     "type": "string"
